@@ -6,10 +6,10 @@ services:
     build: .
     # El HTTPS lo pone HAProxy (y Cloudflare adelante). Por defecto el puerto
     # solo se abre en el propio servidor; si HAProxy corre en otra máquina,
-    # poné CHATBOT_BIND=0.0.0.0 en .env y en el firewall permití el 5001
+    # poné CHATBOT_BIND=0.0.0.0 en .env y en el firewall permití el 5002
     # solo desde la IP de HAProxy.
     ports:
-      - "${CHATBOT_BIND:-127.0.0.1}:5001:5001"
+      - "${CHATBOT_BIND:-127.0.0.1}:5002:5002"
     env_file:
       - .env
     # products.json viene dentro de la imagen y el backend lo actualiza solo

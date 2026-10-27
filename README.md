@@ -9,8 +9,8 @@ Es el mismo proyecto que el chat de Lesedife (repo `lesedifechat`),
 adaptado a LSyD Store: el sitio es de la misma agencia (Positive Media),
 pero LSyD es minorista y **publica los precios**, así que el bot los da
 (precio final con IVA, y si está en oferta, el precio de lista y el
-descuento). Corre en el **puerto 5001** para no chocar con el de Lesedife
-(5000) si están en el mismo servidor.
+descuento). Corre en el **puerto 5002** para no chocar con el de Lesedife
+(5000) ni con otros servicios del mismo servidor.
 
 La solución se aloja aparte y se integra en lsydstore.com.ar con **una
 sola línea de `<script>`** que le tenés que pasar a la agencia para que la
@@ -100,7 +100,7 @@ docker compose up -d --build
 docker compose logs -f      # ver logs (Ctrl+C para salir)
 ```
 
-Después abrí **`http://127.0.0.1:5001/test`** en el navegador (con
+Después abrí **`http://127.0.0.1:5002/test`** en el navegador (con
 `ENABLE_TEST_PAGE=1`). La página de prueba la sirve el
 propio backend. Probá el chat con preguntas tipo:
 
@@ -117,7 +117,7 @@ En producción podés apagar la página de prueba con `ENABLE_TEST_PAGE=0`.
 ### Opción A: servidor propio con `chat.lsydstore.com.ar` (Cloudflare + HAProxy)
 
 Cadena: cliente → **Cloudflare** (proxy naranja) → **HAProxy** (HTTPS) →
-chatbot en el puerto 5001.
+chatbot en el puerto 5002.
 
 1. **Cloudflare:** registro **A** `chat` → IP pública de HAProxy, con el
    proxy activado (nube naranja). En SSL/TLS poné el modo **Full (strict)**
@@ -128,15 +128,15 @@ chatbot en el puerto 5001.
    backend lsydstore_chat
        option forwardfor
        timeout server 100s
-       server chat1 IP-DEL-CHATBOT:5001 check
+       server chat1 IP-DEL-CHATBOT:5002 check
    ```
    `option forwardfor` es lo que hace llegar la IP real del cliente
    (`PROXY_HOPS=2`). El timeout largo es porque algunas respuestas tardan
    más de 30 segundos.
 3. **Firewall:** que el 443 de HAProxy solo acepte las IPs de Cloudflare
-   (https://www.cloudflare.com/ips/) y que el 5001 del chatbot solo acepte
+   (https://www.cloudflare.com/ips/) y que el 5002 del chatbot solo acepte
    a HAProxy. Si HAProxy corre en otra máquina, poné `CHATBOT_BIND=0.0.0.0`
-   en `.env` (por defecto el 5001 solo escucha en el propio servidor).
+   en `.env` (por defecto el 5002 solo escucha en el propio servidor).
 4. Copiá la carpeta al servidor y creá el `.env` a partir de `.env.example`
    (`ALLOWED_ORIGIN`, `PROXY_HOPS=2`, `ENABLE_TEST_PAGE=0`).
 5. `docker compose up -d --build` (el compose tiene `name: lsydstore-chat`,

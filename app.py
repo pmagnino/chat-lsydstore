@@ -460,4 +460,4 @@ def health():
 
 if __name__ == "__main__":
     debug = os.environ.get("FLASK_DEBUG") == "1"
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5001)), debug=debug)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5002)), debug=debug)
