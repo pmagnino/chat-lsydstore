@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prueba — Chatbot LSyD Store</title>
+</head>
+<body>
+  <h1>Página de prueba</h1>
+  <p>Esta página simula lsydstore.com.ar para probar el widget. La sirve el propio backend en <code>/test</code>: usá la burbuja de chat abajo a la derecha.</p>
+
+  <!-- Rutas relativas: funciona en cualquier IP o dominio donde corra el backend -->
+  <script src="/widget/lsydstore-chatbot.js" data-api-url="/"
+          data-turnstile-sitekey="{{TURNSTILE_SITE_KEY}}"></script>
+</body>
+</html>

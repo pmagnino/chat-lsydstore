@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisión del chat · LSyD Store</title>
+<style>
+  :root {
+    --bg: #f6f5f3; --surface: #fff; --ink: #222; --ink-2: #555; --muted: #888;
+    --line: #e6e3df; --brand: #b87e4f; --brand-ink: #8a5a33; --brand-soft: #f5ede6;
+    --ok: #1d7a3e; --ok-soft: #e3f4e8; --bad: #b42318; --bad-soft: #fde8e6;
+    --info-soft: #eef2ff; --info: #3949ab;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161514; --surface: #201f1d; --ink: #eee; --ink-2: #bbb; --muted: #8a8580;
+      --line: #34312e; --brand: #b87e4f; --brand-ink: #e0b48c; --brand-soft: #33281f;
+      --ok: #6fd391; --ok-soft: #173322; --bad: #ff8a80; --bad-soft: #3d1c1a;
+      --info-soft: #23264a; --info: #a9b4ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { background: var(--surface); border-bottom: 1px solid var(--line); padding: 12px 16px;
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; }
+  header h1 span { color: var(--brand); }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  select, input[type=search], input[type=text], textarea, button {
+    font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--brand); }
+  button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  button:disabled { opacity: .5; cursor: default; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tile .label { color: var(--ink-2); font-size: 12px; }
+  .tile .value { font-size: 24px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile .sub { color: var(--muted); font-size: 12px; }
+
+  .panels { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  @media (max-width: 860px) { .panels { grid-template-columns: 1fr; } }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--ink-2); font-weight: 600; }
+  .panel .hint { color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
+
+  .chart { position: relative; height: 140px; display: flex; align-items: flex-end; gap: 2px;
+    border-bottom: 1px solid var(--line); }
+  .chart .bar { flex: 1; min-width: 2px; background: var(--brand); border-radius: 4px 4px 0 0; position: relative; }
+  .chart .hit { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+  .chart .hit:hover .bar { background: var(--brand-ink); }
+  .chart-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .tooltip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg);
+    font-size: 12px; padding: 4px 8px; border-radius: 6px; display: none; z-index: 10; white-space: nowrap; }
+
+  .rank { list-style: none; margin: 0; padding: 0; max-height: 170px; overflow: auto; }
+  .rank li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0;
+    border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .rank li button { border: none; padding: 0; background: none; color: var(--ink); text-align: left; }
+  .rank li button:hover { color: var(--brand-ink); text-decoration: underline; }
+  .rank .n { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-size: 13px; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tabs button { border-radius: 8px 8px 0 0; }
+  .tabs button.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+  .entry { background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px; }
+  .entry.verdict-ok { border-left: 4px solid var(--ok); }
+  .entry.verdict-wrong { border-left: 4px solid var(--bad); }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--bg);
+    color: var(--ink-2); font-size: 12px; border: 1px solid var(--line); }
+  .chip.zero { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .chip.err { background: var(--bad-soft); color: var(--bad); border-color: transparent; font-weight: 600; }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; font-weight: 600; }
+  .chip.teach { background: var(--info-soft); color: var(--info); border-color: transparent; }
+  .q { font-weight: 600; margin-bottom: 6px; white-space: pre-wrap; word-wrap: break-word; }
+  .a { background: var(--brand-soft); border-radius: 10px; padding: 8px 10px; white-space: pre-wrap;
+    word-wrap: break-word; max-height: 260px; overflow: auto; }
+  .a.error { background: var(--bad-soft); color: var(--bad); }
+  .a a { color: var(--brand-ink); }
+  .fix { margin-top: 8px; background: var(--info-soft); border-radius: 10px; padding: 8px 10px; }
+  .fix .label { font-size: 12px; color: var(--info); font-weight: 600; }
+  .fix .text { white-space: pre-wrap; word-wrap: break-word; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .actions button.on-ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+  .actions button.on-wrong { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .editor { margin-top: 10px; display: grid; gap: 8px; }
+  .editor textarea { width: 100%; min-height: 120px; resize: vertical; }
+  .editor label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+  .thread { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+  .thread .turn { font-size: 13px; white-space: pre-wrap; word-wrap: break-word; padding: 6px 8px; border-radius: 8px; }
+  .thread .turn.user { background: var(--bg); }
+  .thread .turn.bot { background: var(--brand-soft); }
+  .thread .turn.current { outline: 2px solid var(--brand); }
+  .more { display: block; margin: 10px auto 30px; }
+  .status { color: var(--muted); padding: 30px 0; text-align: center; }
+  @media (max-width: 600px) { .tile .value { font-size: 20px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>LSyD Store</span> · Revisión del chat</h1>
+  <div class="controls">
+    <select id="days" aria-label="Período">
+      <option value="1">Últimas 24 h</option>
+      <option value="7">Últimos 7 días</option>
+      <option value="30" selected>Últimos 30 días</option>
+      <option value="90">Últimos 90 días</option>
+      <option value="0">Todo</option>
+    </select>
+    <button id="reload">Actualizar</button>
+  </div>
+</header>
+
+<main>
+  <section class="tiles" id="tiles"></section>
+
+  <section class="panels">
+    <div class="panel">
+      <h2>Consultas por día</h2>
+      <div class="chart" id="chart"></div>
+      <div class="chart-axis" id="chart-axis"></div>
+    </div>
+    <div class="panel">
+      <h2>Búsquedas sin resultados</h2>
+      <p class="hint">Lo que piden y el catálogo no encontró. Clic para filtrar.</p>
+      <ul class="rank" id="zero-searches"></ul>
+    </div>
+    <div class="panel">
+      <h2>Búsquedas más hechas</h2>
+      <p class="hint">Términos que usó el bot para buscar.</p>
+      <ul class="rank" id="top-searches"></ul>
+    </div>
+  </section>
+
+  <div class="tabs">
+    <button id="tab-chats" class="active">Respuestas</button>
+    <button id="tab-fixes">Correcciones que usa el bot</button>
+  </div>
+
+  <section id="view-chats">
+    <div class="controls" style="margin-bottom:10px">
+      <input type="search" id="q" placeholder="Buscar en preguntas, respuestas o búsquedas…" style="flex:1;min-width:200px">
+      <select id="filter" aria-label="Filtro">
+        <option value="all">Todas</option>
+        <option value="pending">Sin revisar</option>
+        <option value="wrong">Marcadas mal</option>
+        <option value="ok">Marcadas bien</option>
+        <option value="fixed">Con corrección</option>
+        <option value="zero">Con búsquedas sin resultados</option>
+        <option value="error">Con error</option>
+      </select>
+      <span id="count" class="empty"></span>
+    </div>
+    <div id="list"><div class="status">Cargando…</div></div>
+    <button id="more" class="more" hidden>Ver más</button>
+  </section>
+
+  <section id="view-fixes" hidden>
+    <p class="empty" style="margin-top:0">Estas correcciones se suman a las instrucciones del bot en cada consulta: si un cliente pregunta algo parecido, responde siguiéndolas. Destildá "Que el bot la use" para sacarla sin borrarla.</p>
+    <div id="fixes"></div>
+  </section>
+</main>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAGE = 50;
+  var entries = [];
+  var shown = PAGE;
+  var openThread = {};
+  var openEditor = {};
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") node.textContent = attrs[k];
+      else if (k === "class") node.className = attrs[k];
+      else if (k.slice(0, 2) === "on") node.addEventListener(k.slice(2), attrs[k]);
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  // Texto con links clickeables, armado con nodos (nunca innerHTML con texto de clientes)
+  function linkified(text, cls) {
+    var node = el("div", { class: cls });
+    var re = /https?:\/\/[^\s<"']+/g, last = 0, m;
+    text = text || "";
+    while ((m = re.exec(text))) {
+      var url = m[0].replace(/[.,;:!?)]+$/, "");
+      node.appendChild(document.createTextNode(text.slice(last, m.index)));
+      node.appendChild(el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text: url }));
+      last = m.index + url.length;
+    }
+    node.appendChild(document.createTextNode(text.slice(last)));
+    return node;
+  }
+
+  function fmtDate(iso) {
+    var d = new Date(iso);
+    return d.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+  function dayKey(iso) {
+    var d = new Date(iso);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function num(n) { return Math.round(n).toLocaleString("es-AR"); }
+  function hasZero(e) { return (e.searches || []).some(function (s) { return s.results === 0; }); }
+
+  function api(path, body) {
+    return fetch(path, body ? {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    } : {}).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error(data.error || "Error " + res.status);
+        return data;
+      });
+    });
+  }
+
+  function load() {
+    $("list").innerHTML = '<div class="status">Cargando…</div>';
+    api("/admin/api/chats?days=" + $("days").value).then(function (data) {
+      entries = data.entries || [];
+      shown = PAGE;
+      renderAll();
+    }).catch(function (err) {
+      $("list").innerHTML = "";
+      $("list").appendChild(el("div", { class: "status", text: "No se pudo cargar: " + err.message }));
+    });
+  }
+
+  function renderAll() {
+    renderTiles();
+    renderChart();
+    renderRanks();
+    renderList();
+    renderFixes();
+  }
+
+  // --- Métricas ---
+  function tile(label, value, sub) {
+    return el("div", { class: "tile" }, [
+      el("div", { class: "label", text: label }),
+      el("div", { class: "value", text: value }),
+      sub ? el("div", { class: "sub", text: sub }) : null
+    ]);
+  }
+
+  function renderTiles() {
+    var total = entries.length;
+    var convs = {}, errors = 0, secs = 0, okCount = 0, tin = 0, tout = 0, reviewed = 0, wrong = 0, zero = 0;
+    entries.forEach(function (e) {
+      convs[e.conversation || e.id] = 1;
+      if (e.status !== 200) errors++;
+      else { secs += e.seconds || 0; okCount++; }
+      tin += e.input_tokens || 0; tout += e.output_tokens || 0;
+      if (e.review) { reviewed++; if (e.review.verdict === "wrong") wrong++; }
+      if (hasZero(e)) zero++;
+    });
+    var tiles = $("tiles");
+    tiles.innerHTML = "";
+    tiles.appendChild(tile("Consultas", num(total), num(Object.keys(convs).length) + " conversaciones"));
+    tiles.appendChild(tile("Con error", total ? Math.round(errors * 100 / total) + "%" : "–", num(errors) + " consultas"));
+    tiles.appendChild(tile("Tiempo de respuesta", okCount ? (secs / okCount).toFixed(1) + " s" : "–", "promedio"));
+    tiles.appendChild(tile("Sin resultados", num(zero), "consultas con alguna búsqueda vacía"));
+    tiles.appendChild(tile("Revisadas", num(reviewed), total ? Math.round(reviewed * 100 / total) + "% del total" : ""));
+    tiles.appendChild(tile("Marcadas mal", num(wrong), reviewed ? Math.round(wrong * 100 / reviewed) + "% de las revisadas" : ""));
+    tiles.appendChild(tile("Tokens", num((tin + tout) / 1000) + " k", num(tin / 1000) + " k entrada · " + num(tout / 1000) + " k salida"));
+  }
+
+  // --- Consultas por día ---
+  function renderChart() {
+    var counts = {};
+    entries.forEach(function (e) { var k = dayKey(e.time); counts[k] = (counts[k] || 0) + 1; });
+    var keys = Object.keys(counts).sort();
+    var chart = $("chart"), axis = $("chart-axis");
+    chart.innerHTML = ""; axis.innerHTML = "";
+    if (!keys.length) { chart.appendChild(el("div", { class: "empty", text: "Sin consultas en el período." })); return; }
+    // Completa los días sin consultas para que la escala de tiempo sea real
+    var days = [], d = new Date(keys[0] + "T12:00:00"), end = new Date(keys[keys.length - 1] + "T12:00:00");
+    while (d <= end) { days.push(dayKey(d.toISOString())); d.setDate(d.getDate() + 1); }
+    var max = Math.max.apply(null, days.map(function (k) { return counts[k] || 0; }));
+    var tip = $("tooltip");
+    days.forEach(function (k) {
+      var n = counts[k] || 0;
+      var label = new Date(k + "T12:00:00").toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+      var hit = el("div", { class: "hit",
+        onmousemove: function (ev) {
+          tip.textContent = label + ": " + n + (n === 1 ? " consulta" : " consultas");
+          tip.style.display = "block";
+          tip.style.left = Math.min(ev.clientX + 12, window.innerWidth - tip.offsetWidth - 8) + "px";
+          tip.style.top = (ev.clientY - 30) + "px";
+        },
+        onmouseleave: function () { tip.style.display = "none"; }
+      }, [el("div", { class: "bar", style: "height:" + (n ? Math.max(2, n * 100 / max) : 0) + "%" })]);
+      chart.appendChild(hit);
+    });
+    var fmt = function (k) { return new Date(k + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "short" }); };
+    axis.appendChild(el("span", { text: fmt(days[0]) }));
+    axis.appendChild(el("span", { text: "máx. " + max + " por día" }));
+    axis.appendChild(el("span", { text: fmt(days[days.length - 1]) }));
+  }
+
+  // --- Rankings de búsquedas ---
+  function rankList(target, pairs) {
+    target.innerHTML = "";
+    if (!pairs.length) { target.appendChild(el("li", { class: "empty", text: "Nada por ahora." })); return; }
+    pairs.slice(0, 30).forEach(function (p) {
+      target.appendChild(el("li", {}, [
+        el("button", { text: p[0], title: "Filtrar por esta búsqueda", onclick: function () {
+          $("q").value = p[0]; $("filter").value = "all"; shown = PAGE; showTab("chats"); renderList();
+          $("view-chats").scrollIntoView({ behavior: "smooth" });
+        } }),
+        el("span", { class: "n", text: String(p[1]) })
+      ]));
+    });
+  }
+
+  function renderRanks() {
+    var zero = {}, top = {};
+    entries.forEach(function (e) {
+      (e.searches || []).forEach(function (s) {
+        var q = (s.query || "").toLowerCase().trim();
+        if (!q) return;
+        top[q] = (top[q] || 0) + 1;
+        if (s.results === 0) zero[q] = (zero[q] || 0) + 1;
+      });
+    });
+    var sorted = function (o) { return Object.keys(o).map(function (k) { return [k, o[k]]; }).sort(function (a, b) { return b[1] - a[1]; }); };
+    rankList($("zero-searches"), sorted(zero));
+    rankList($("top-searches"), sorted(top));
+  }
+
+  // --- Lista de respuestas ---
+  function filtered() {
+    var q = $("q").value.toLowerCase().trim();
+    var f = $("filter").value;
+    return entries.filter(function (e) {
+      var r = e.review;
+      if (f === "pending" && r) return false;
+      if (f === "wrong" && !(r && r.verdict === "wrong")) return false;
+      if (f === "ok" && !(r && r.verdict === "ok")) return false;
+      if (f === "fixed" && !(r && r.correction)) return false;
+      if (f === "zero" && !hasZero(e)) return false;
+      if (f === "error" && e.status === 200) return false;
+      if (!q) return true;
+      var hay = [e.message, e.reply, e.error, r && r.correction, r && r.note]
+        .concat((e.searches || []).map(function (s) { return s.query; })).join(" ").toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+
+  function renderList() {
+    var list = $("list");
+    var items = filtered();
+    list.innerHTML = "";
+    $("count").textContent = items.length === entries.length ? items.length + " consultas" : items.length + " de " + entries.length;
+    if (!items.length) {
+      list.appendChild(el("div", { class: "status", text: entries.length ? "Nada coincide con el filtro." : "Todavía no hay consultas registradas en este período." }));
+    }
+    items.slice(0, shown).forEach(function (e) { list.appendChild(renderEntry(e)); });
+    $("more").hidden = items.length <= shown;
+  }
+
+  function renderEntry(e) {
+    var r = e.review;
+    var card = el("article", { class: "entry" + (r ? " verdict-" + r.verdict : "") });
+
+    var meta = el("div", { class: "meta" }, [el("span", { text: fmtDate(e.time) })]);
+    if (e.status !== 200) meta.appendChild(el("span", { class: "chip err", text: "Error " + e.status }));
+    meta.appendChild(el("span", { text: (e.seconds || 0) + " s" }));
+    meta.appendChild(el("span", { text: num((e.input_tokens || 0) + (e.output_tokens || 0)) + " tokens" }));
+    if (e.history_turns) meta.appendChild(el("span", { text: "mensaje " + (Math.floor(e.history_turns / 2) + 1) + " de la charla" }));
+    (e.searches || []).forEach(function (s) {
+      meta.appendChild(el("span", { class: "chip" + (s.results === 0 ? " zero" : ""),
+        title: s.results + " resultados", text: "🔍 " + s.query + " · " + s.results }));
+    });
+    if (r) meta.appendChild(el("span", { class: "chip " + (r.verdict === "ok" ? "ok" : "err"), text: r.verdict === "ok" ? "✓ Bien" : "✗ Mal" }));
+    if (r && r.teach && r.correction) meta.appendChild(el("span", { class: "chip teach", text: "El bot usa la corrección" }));
+    card.appendChild(meta);
+
+    card.appendChild(el("div", { class: "q", text: e.message || "" }));
+    if (e.status === 200) card.appendChild(linkified(e.reply, "a"));
+    else card.appendChild(el("div", { class: "a error", text: e.error || "Error" }));
+
+    if (r && r.correction) {
+      card.appendChild(el("div", { class: "fix" }, [
+        el("div", { class: "label", text: "Respuesta correcta" }),
+        linkified(r.correction, "text")
+      ]));
+    }
+    if (r && r.note) card.appendChild(el("div", { class: "meta", style: "margin-top:6px", text: "Nota: " + r.note }));
+
+    var actions = el("div", { class: "actions" }, [
+      el("button", { class: r && r.verdict === "ok" ? "on-ok" : "", text: "✓ Bien",
+        onclick: function () { save(e, r && r.verdict === "ok" ? null : { verdict: "ok" }); } }),
+      el("button", { class: r && r.verdict === "wrong" ? "on-wrong" : "", text: "✗ Mal",
+        onclick: function () {
+          if (r && r.verdict === "wrong") return save(e, null);
+          openEditor[e.id] = true; renderList();
+        } }),
+      el("button", { text: r && r.correction ? "✎ Editar corrección" : "✎ Corregir",
+        onclick: function () { openEditor[e.id] = !openEditor[e.id]; renderList(); } }),
+      e.conversation ? el("button", { text: openThread[e.id] ? "Ocultar conversación" : "Ver conversación",
+        onclick: function () { openThread[e.id] = !openThread[e.id]; renderList(); } }) : null
+    ]);
+    card.appendChild(actions);
+
+    if (openEditor[e.id]) card.appendChild(renderEditor(e));
+    if (openThread[e.id]) card.appendChild(renderThread(e));
+    return card;
+  }
+
+  function renderEditor(e) {
+    var r = e.review || {};
+    var text = el("textarea", { "aria-label": "Respuesta correcta" });
+    text.value = r.correction || (e.status === 200 ? e.reply || "" : "");
+    var teach = el("input", { type: "checkbox" });
+    teach.checked = r.correction ? !!r.teach : true;
+    var note = el("input", { type: "text", placeholder: "Nota interna (opcional): qué estuvo mal" });
+    note.value = r.note || "";
+    var saveBtn = el("button", { class: "primary", text: "Guardar corrección", onclick: function () {
+      saveBtn.disabled = true;
+      save(e, { verdict: "wrong", correction: text.value, teach: teach.checked, note: note.value }).then(function (ok) {
+        if (ok) openEditor[e.id] = false;
+        saveBtn.disabled = false;
+        renderList();
+      });
+    } });
+    return el("div", { class: "editor" }, [
+      el("div", { class: "empty", text: "Escribí cómo tendría que haber respondido el bot:" }),
+      text,
+      el("label", {}, [teach, document.createTextNode("Que el bot use esta corrección cuando le pregunten algo parecido")]),
+      note,
+      el("div", { class: "actions", style: "margin-top:0" }, [
+        saveBtn,
+        el("button", { text: "Marcar mal sin corregir", onclick: function () {
+          save(e, { verdict: "wrong", note: note.value }).then(function (ok) { if (ok) { openEditor[e.id] = false; renderList(); } });
+        } }),
+        el("button", { text: "Cancelar", onclick: function () { openEditor[e.id] = false; renderList(); } })
+      ])
+    ]);
+  }
+
+  function renderThread(e) {
+    var turns = entries.filter(function (x) { return x.conversation === e.conversation; })
+      .sort(function (a, b) { return a.time < b.time ? -1 : 1; });
+    var box = el("div", { class: "thread" });
+    turns.forEach(function (t) {
+      box.appendChild(el("div", { class: "turn user" + (t.id === e.id ? " current" : ""), text: "Cliente (" + fmtDate(t.time) + "): " + t.message }));
+      box.appendChild(el("div", { class: "turn bot", text: "Bot: " + (t.status === 200 ? t.reply : "[error] " + t.error) }));
+    });
+    return box;
+  }
+
+  function save(e, review) {
+    var body = review ? {
+      verdict: review.verdict, question: e.message, reply: e.reply || "",
+      correction: review.correction || "", teach: !!review.teach, note: review.note || ""
+    } : { verdict: null };
+    return api("/admin/api/reviews/" + e.id, body).then(function (data) {
+      e.review = data.review;
+      entries.forEach(function (x) { if (x.id === e.id) x.review = data.review; });
+      renderTiles(); renderList(); renderFixes();
+      return true;
+    }).catch(function (err) {
+      alert("No se pudo guardar: " + err.message);
+      return false;
+    });
+  }
+
+  // --- Correcciones activas (de cualquier fecha, no solo del período) ---
+  function renderFixes() {
+    api("/admin/api/reviews").then(function (data) {
+      var reviews = data.reviews || {};
+      var ids = Object.keys(reviews).filter(function (id) { return reviews[id].correction; })
+        .sort(function (a, b) { return reviews[a].reviewed_at < reviews[b].reviewed_at ? 1 : -1; });
+      var box = $("fixes");
+      box.innerHTML = "";
+      $("tab-fixes").textContent = "Correcciones que usa el bot (" + ids.filter(function (id) { return reviews[id].teach; }).length + ")";
+      if (!ids.length) { box.appendChild(el("div", { class: "status", text: "Todavía no hay correcciones." })); return; }
+      ids.forEach(function (id) {
+        var r = reviews[id];
+        var entry = { id: id, message: r.question, reply: r.reply };
+        var teach = el("input", { type: "checkbox" });
+        teach.checked = !!r.teach;
+        teach.addEventListener("change", function () {
+          save(entry, { verdict: r.verdict, correction: r.correction, teach: teach.checked, note: r.note });
+        });
+        box.appendChild(el("article", { class: "entry verdict-wrong" }, [
+          el("div", { class: "meta", text: "Corregida " + fmtDate(r.reviewed_at) + (r.note ? " · " + r.note : "") }),
+          el("div", { class: "q", text: r.question }),
+          el("div", { class: "fix", style: "margin-top:0" }, [el("div", { class: "label", text: "Respuesta correcta" }), linkified(r.correction, "text")]),
+          el("div", { class: "actions" }, [
+            el("label", { style: "display:flex;gap:6px;align-items:center" }, [teach, document.createTextNode("Que el bot la use")]),
+            el("button", { text: "Borrar", onclick: function () {
+              if (confirm("¿Borrar esta corrección y su revisión?")) save(entry, null).then(function () { load(); });
+            } })
+          ])
+        ]));
+      });
+    }).catch(function () { /* se reintenta en la próxima actualización */ });
+  }
+
+  function showTab(name) {
+    $("tab-chats").classList.toggle("active", name === "chats");
+    $("tab-fixes").classList.toggle("active", name === "fixes");
+    $("view-chats").hidden = name !== "chats";
+    $("view-fixes").hidden = name !== "fixes";
+  }
+
+  $("tab-chats").addEventListener("click", function () { showTab("chats"); });
+  $("tab-fixes").addEventListener("click", function () { showTab("fixes"); });
+  $("days").addEventListener("change", load);
+  $("reload").addEventListener("click", load);
+  $("q").addEventListener("input", function () { shown = PAGE; renderList(); });
+  $("filter").addEventListener("change", function () { shown = PAGE; renderList(); });
+  $("more").addEventListener("click", function () { shown += PAGE; renderList(); });
+
+  load();
+})();
+</script>
+</body>
+</html>

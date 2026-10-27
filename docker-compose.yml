@@ -1,0 +1,29 @@
+# Nombre propio para no chocar con los contenedores del chat de Lesedife
+name: lsydstore-chat
+
+services:
+  chatbot:
+    build: .
+    # El HTTPS lo pone HAProxy (y Cloudflare adelante). Por defecto el puerto
+    # solo se abre en el propio servidor; si HAProxy corre en otra máquina,
+    # poné CHATBOT_BIND=0.0.0.0 en .env y en el firewall permití el 5001
+    # solo desde la IP de HAProxy.
+    ports:
+      - "${CHATBOT_BIND:-127.0.0.1}:5001:5001"
+    env_file:
+      - .env
+    # products.json viene dentro de la imagen y el backend lo actualiza solo
+    # cada CATALOG_REFRESH_HOURS horas (por eso no se monta como solo lectura).
+    volumes:
+      # Registro de consultas (logs/chats.jsonl): queda en el servidor aunque
+      # se recree el contenedor
+      - ./logs:/app/logs
+      # Preguntas frecuentes: editás faq/faq.md en el servidor y el bot lo
+      # toma en la siguiente consulta, sin rebuild
+      - ./faq:/app/faq:ro
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
