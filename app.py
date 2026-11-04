@@ -264,7 +264,7 @@ def search_products_tool(query: str) -> str:
 
 
 _URL_PATTERN = re.compile(r"https?://[^\s<\"']+")
-MAX_REPLY_PRODUCTS = 10
+MAX_REPLY_PRODUCTS = 5
 
 
 def products_in_reply(reply: str) -> list[dict]:
@@ -345,7 +345,9 @@ def chat():
         conversation = None
     g.searches = []
     started = time.monotonic()
-    usage = {"input_tokens": 0, "output_tokens": 0}
+    # input_tokens son solo los que se cobran completos; los leídos de la
+    # caché (10% del precio) y los escritos en ella van aparte
+    usage = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
 
     def respond(status: int, reply: str = None, error: str = None):
         log_chat(
@@ -372,6 +374,9 @@ def chat():
             messages=messages,
             output_config={"effort": EFFORT},
             max_iterations=6,
+            # Cachea las instrucciones, la FAQ y la conversación: cada búsqueda
+            # reenvía todo, y así las llamadas siguientes lo leen de la caché
+            cache_control={"type": "ephemeral"},
             # Si el modelo rechaza la consulta por seguridad, la API la
             # reintenta automáticamente con un modelo alternativo.
             betas=["server-side-fallback-2026-07-01"],
@@ -384,6 +389,8 @@ def chat():
             final_message = message
             usage["input_tokens"] += message.usage.input_tokens or 0
             usage["output_tokens"] += message.usage.output_tokens or 0
+            usage["cache_read_input_tokens"] += message.usage.cache_read_input_tokens or 0
+            usage["cache_creation_input_tokens"] += message.usage.cache_creation_input_tokens or 0
     except anthropic.RateLimitError:
         return respond(429, error="Estamos con mucha demanda ahora mismo, probá de nuevo en un momento.")
     except anthropic.APIStatusError as e:

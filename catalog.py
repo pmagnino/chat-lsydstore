@@ -82,7 +82,7 @@ def _reload_if_changed() -> None:
             log.exception("No se pudo recargar products.json; sigo con el catálogo anterior")
 
 
-def search_products(query: str = "", limit: int = 10) -> list[dict]:
+def search_products(query: str = "", limit: int = 5) -> list[dict]:
     """Busca productos cuyo nombre/categoría/código/colores contengan todas las palabras de la búsqueda.
 
     Tolera plurales y acentos. Los resultados se ordenan por cantidad de

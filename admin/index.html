@@ -263,12 +263,13 @@
 
   function renderTiles() {
     var total = entries.length;
-    var convs = {}, errors = 0, secs = 0, okCount = 0, tin = 0, tout = 0, reviewed = 0, wrong = 0, zero = 0;
+    var convs = {}, errors = 0, secs = 0, okCount = 0, tin = 0, tcache = 0, tout = 0, reviewed = 0, wrong = 0, zero = 0;
     entries.forEach(function (e) {
       convs[e.conversation || e.id] = 1;
       if (e.status !== 200) errors++;
       else { secs += e.seconds || 0; okCount++; }
-      tin += e.input_tokens || 0; tout += e.output_tokens || 0;
+      tin += (e.input_tokens || 0) + (e.cache_read_input_tokens || 0) + (e.cache_creation_input_tokens || 0);
+      tcache += e.cache_read_input_tokens || 0; tout += e.output_tokens || 0;
       if (e.review) { reviewed++; if (e.review.verdict === "wrong") wrong++; }
       if (hasZero(e)) zero++;
     });
@@ -280,7 +281,7 @@
     tiles.appendChild(tile("Sin resultados", num(zero), "consultas con alguna búsqueda vacía"));
     tiles.appendChild(tile("Revisadas", num(reviewed), total ? Math.round(reviewed * 100 / total) + "% del total" : ""));
     tiles.appendChild(tile("Marcadas mal", num(wrong), reviewed ? Math.round(wrong * 100 / reviewed) + "% de las revisadas" : ""));
-    tiles.appendChild(tile("Tokens", num((tin + tout) / 1000) + " k", num(tin / 1000) + " k entrada · " + num(tout / 1000) + " k salida"));
+    tiles.appendChild(tile("Tokens", num((tin + tout) / 1000) + " k", num(tin / 1000) + " k entrada (" + num(tcache / 1000) + " k de caché) · " + num(tout / 1000) + " k salida"));
   }
 
   // --- Consultas por día ---
@@ -384,7 +385,7 @@
     var meta = el("div", { class: "meta" }, [el("span", { text: fmtDate(e.time) })]);
     if (e.status !== 200) meta.appendChild(el("span", { class: "chip err", text: "Error " + e.status }));
     meta.appendChild(el("span", { text: (e.seconds || 0) + " s" }));
-    meta.appendChild(el("span", { text: num((e.input_tokens || 0) + (e.output_tokens || 0)) + " tokens" }));
+    meta.appendChild(el("span", { text: num((e.input_tokens || 0) + (e.cache_read_input_tokens || 0) + (e.cache_creation_input_tokens || 0) + (e.output_tokens || 0)) + " tokens" }));
     if (e.history_turns) meta.appendChild(el("span", { text: "mensaje " + (Math.floor(e.history_turns / 2) + 1) + " de la charla" }));
     (e.searches || []).forEach(function (s) {
       meta.appendChild(el("span", { class: "chip" + (s.results === 0 ? " zero" : ""),
